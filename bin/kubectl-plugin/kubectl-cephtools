@@ -1,0 +1,12 @@
+#! /bin/bash
+NAME=$(kubectl -n rook get pods -l app=rook-ceph-tools -o name | head -1)
+if [[ -z $NAME ]]; then
+  NAME=$(kubectl -n rook get pod rook-tools -o name)
+  if [[ -z $NAME ]]; then
+    echo "cannot find rook-tools"
+    exit 1
+  fi
+fi
+POD=$(echo $NAME | cut -d'/' -f 2)
+
+kubectl -n rook exec -ti $POD -- "$@"

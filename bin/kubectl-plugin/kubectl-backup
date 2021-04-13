@@ -1,0 +1,5 @@
+#! /bin/bash
+NAME=$(kubectl -n hub get pods -l app=primehub-volume-backup -o name | head -1)
+
+POD=$(echo $NAME | cut -d'/' -f 2)
+kubectl -n hub exec -it $POD -- python3 /scripts/pvc_rbd_tools.py $@

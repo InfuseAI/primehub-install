@@ -1,0 +1,168 @@
+#!/bin/bash
+#
+# set -x
+# set -euo pipefail
+usage () {
+  FDELETE=$(basename $0)
+  echo "Force delete pods after a period of time. Especially useful for pods controlled by statefulset."
+  echo ""
+  echo "Usage: $FDELETE <kind> [-n namespace] (-l selector | <name>)"
+  echo ""
+  echo "Examples:"
+  echo "  # delete pod abc"
+  echo "  $FDELETE pod -n default abc"
+  echo ""
+  echo "  # delete pods with label"
+  echo "  $FDELETE pod -n default -l app=test"
+  echo ""
+  echo "  # delete pods and force delete after 10 seconds"
+  echo "  $FDELETE pod -n default -l app=test -t 10"
+  echo ""
+  echo "Options:"
+  echo "  -n --namepsaces   the namespace"
+  echo "  -l --selector     the selectror"
+  echo "  -t                the time to force delete"
+  echo "  -h                print this help"
+  echo ""
+  echo "Reference:"
+  echo "  https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods"
+  echo "  https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/"
+  exit
+}
+
+error () {
+  echo "error:" $@
+  exit 1
+}
+
+POSITIONAL=()
+
+NAMESPACE=default
+GRACEPERIOD=60
+FORCEPERIOD=2
+ARGS=""
+
+while [[ $# -gt 0 ]]
+  do
+  key="$1"
+
+  case $key in
+      -l|--selector)
+      ARGS="$ARGS $1 $2"
+      shift # past argument
+      shift # past value
+      ;;
+      -n|--namespace)
+      NAMESPACE=$2
+      shift # past argument
+      shift # past value
+      ;;
+      -t)
+      GRACEPERIOD=$2
+      shift # past argument
+      shift # past value
+      ;;
+      --debug)
+      set -x
+      shift # past value
+      ;;
+      -h)
+      usage
+      ;;
+      *)    # unknown option
+      POSITIONAL+=("$1") # save it in an array for later
+      shift # past argument
+      ;;
+  esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+
+if [[ $# -eq 0 ]]; then
+  error "no resource specified"
+fi
+
+KIND=$1
+shift
+
+if [[ -z $ARGS && $# -eq 0 ]]; then
+  error "no selector or name is specified"
+fi
+
+if [[ -n $ARGS && $# -gt 0 ]]; then
+  error "name cannot be provided when a selector is specified"
+fi
+
+LABEL="fdelete=$RANDOM"
+
+if [[ $# -eq 0 ]]; then
+  if [[ -z $(kubectl get $KIND $ARGS -n $NAMESPACE -o name) ]]; then
+    echo "no objects found"
+    exit
+  fi
+  kubectl label $KIND --overwrite -n $NAMESPACE $ARGS $LABEL > /dev/null
+else 
+  if [[ -z $(kubectl get $KIND $@ -n $NAMESPACE -o name 2> /dev/null ) ]]; then
+    echo "no objects found"
+    exit
+  fi
+  kubectl label $KIND --overwrite -n $NAMESPACE $@ $LABEL > /dev/null
+fi
+kubectl -n $NAMESPACE -l $LABEL get $KIND -o jsonpath='{range .items[*]}[{.kind}/{.metadata.name}] deleting{"\n"}{end}'
+kubectl delete $KIND -n $NAMESPACE -l $LABEL --grace-period=$GRACEPERIOD > /dev/null &  
+
+get_objects_to_delete(){
+  kubectl get $KIND -n $NAMESPACE  -l $LABEL -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'
+}
+
+
+# delete normally
+i=0
+while [[ -n $(get_objects_to_delete) ]]; do
+  echo -n "."
+  sleep 1
+  ((i++))
+  if [[ i -gt $GRACEPERIOD ]]; then
+    break;
+  fi
+done
+echo
+
+# force delete
+if [[ -n $(get_objects_to_delete) ]]; then
+  for object in $(get_objects_to_delete); do
+    echo "[${KIND}/${object}] force deleting"
+    kubectl -n $NAMESPACE delete $KIND $object --force --grace-period=0  >/dev/null 2>&1 &
+  done
+
+
+  # wait for object deleted
+  i=0
+  while [[ -n $(get_objects_to_delete) ]]; do
+    echo -n "."
+    sleep 1
+    ((i++))
+    if [[ i -gt $FORCEPERIOD ]]; then
+      break;
+    fi
+  done
+  echo
+
+  # patch the finalizer
+  if [[ -n $(get_objects_to_delete) ]]; then
+    for object in $(get_objects_to_delete); do
+      echo "[${KIND}/${object}] patching finalizer"
+      kubectl -n $NAMESPACE patch $KIND $object -p '{"metadata":{"finalizers":null}}' >/dev/null &
+    done
+
+    sleep 1
+  fi
+fi
+
+if [[ -z $(get_objects_to_delete) ]]; then
+  echo "complete"
+else
+  error "failed"
+fi
+
+

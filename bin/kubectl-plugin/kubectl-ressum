@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# pod resource usage and requests/limits summary,
+# based on https://github.com/kubernetes/kubernetes/issues/17512
+
+while [[ $# -gt 0 ]]
+  do
+  key="$1"
+
+  case $key in
+      -l|--selector)
+      ARGS="$ARGS $1 $2"
+      shift # past argument
+      shift # past value
+      ;;
+      -n|--namespace)
+      NAMESPACE=$2
+      shift # past argument
+      shift # past value
+      ;;
+      -h)
+      usage
+      ;;
+      *)    # unknown option
+      POSITIONAL+=("$1") # save it in an array for later
+      shift # past argument
+      ;;
+  esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [ -z "$NAMESPACE" ]; then
+  NAMESPACE="--all-namespaces"
+else
+  NAMESPACE="-n $NAMESPACE"
+fi
+
+join -a1 -a2 -o 0,1.2,1.3,2.2,2.3,2.4,2.5, -e '<none>' <(kubectl top pods $NAMESPACE $ARGS) <(kubectl get $NAMESPACE $ARGS pods -o custom-columns=NAME:.metadata.name,"CPU_REQ(cores)":.spec.containers[*].resources.requests.cpu,"MEMORY_REQ(bytes)":.spec.containers[*].resources.requests.memory,"CPU_LIM(cores)":.spec.containers[*].resources.limits.cpu,"MEMORY_LIM(bytes)":.spec.containers[*].resources.limits.memory) | column -t -s' '
+

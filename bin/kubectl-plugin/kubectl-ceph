@@ -1,0 +1,30 @@
+#! /bin/bash
+NAME=$(kubectl -n rook get pods -l app=rook-ceph-tools -o name | head -1)
+if [[ -z $NAME ]]; then
+  NAME=$(kubectl -n rook get pod rook-tools -o name)
+  if [[ -z $NAME ]]; then
+    echo "cannot find rook-tools"
+    exit 1
+  fi
+fi
+
+TERMINAL="-ti"
+while [[ $# -gt 0 ]]
+  do
+  key="$1"
+
+  case $key in
+      --no-terminal)
+      TERMINAL=""
+      shift # past value
+      ;;
+      *)    # unknown option
+      POSITIONAL+=("$1") # save it in an array for later
+      shift # past argument
+      ;;
+  esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+POD=$(echo $NAME | cut -d'/' -f 2)
+kubectl -n rook exec $TERMINAL $POD -- ceph $@

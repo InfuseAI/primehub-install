@@ -1,0 +1,22 @@
+repositories:
+  - name: infuseai
+    url: https://charts.infuseai.io
+
+charts:
+  - name: primehub
+    namespace: hub
+    labels:
+      app: primehub
+      release: primehub
+    {{- if env "PRIMEHUB_CHART_PATH" }}
+    chart: {{ env "PRIMEHUB_CHART_PATH" }}
+    {{- else }}
+    chart: infuseai/primehub
+    {{- end }}
+    {{- if env "PRIMEHUB_VERSION" }}
+    version: {{ env "PRIMEHUB_VERSION" }}
+    {{- end }}
+    values:
+      - values/primehub.yaml.gotmpl
+      - values/images.yaml.gotmpl
+      - {{ env "PRIMEHUB_VALUES_PATH" | default "etc/helm_override" }}/primehub.yaml

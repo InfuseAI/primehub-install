@@ -1,0 +1,55 @@
+# Primehub Settings
+#
+# Define the namespace of primehub
+#   PRIMEHUB_NAMESPACE=
+#
+# Define the domain of primehub
+# Unified Domain
+#   PRIMEHUB_DOMAIN=
+#   PRIMEHUB_SCHEME=
+#
+# External Keycloak Domain
+#   KC_DOMAIN=
+#   KC_SCHEME=
+#
+# Keycloak admin account / db account / realm for primehub
+#   KC_USER=
+#   KC_PASSWORD=
+#   KC_DB_PASSWORD=
+#   KC_REALM=
+#
+# Primehub Console
+#   ADMIN_UI_CLIENT_SECRET=
+#   ADMIN_UI_GRAPHQL_SECRET_KEY=
+#
+# Jupyterhub
+#   HUB_AUTH_STATE_CRYPTO_KEY=
+#   HUB_PROXY_SECRET_TOKEN=
+#
+# Storage Class
+#   PRIMEHUB_STORAGE_CLASS
+#
+# Enabled if run primehub in airgap environment
+#   PRIMEHUB_AIRGAPPED=
+#   PRIMEHUB_AIRGAPPED_IMAGE_PREFIX=primehub.airgap:5000/
+#
+
+# Grafana Settings
+#   GRAFANA_ADMIN=
+#   GRAFANA_PASSWORD=
+#   GRAFANA_SCHEME=
+#   GRAFANA_DOMAIN=
+#   GRAFANA_KEYCLOAK_PROXY_CLIENT_SECRET=
+#
+
+# Kibana Settings
+#   KIBANA_KEYCLOAK_PROXY_CLIENT_SECRET=
+
+# Dataset Upload Server
+#   PRIMEHUB_FEATURE_DATASET_UPLOAD=true
+
+# Job Submission
+#   PRIMEHUB_FEATURE_JOB_SUBMISSION=true
+
+# Model Deployment
+#   PRIMEHUB_FEATURE_MODEL_DEPLOYMENT=true

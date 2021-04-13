@@ -1,0 +1,73 @@
+#! /bin/bash
+
+red=$'\e[1;31m'
+grn=$'\e[1;32m'
+yel=$'\e[1;33m'
+blu=$'\e[1;34m'
+end=$'\e[0m'
+
+flags=''
+data_key=''
+
+function usage() {
+  echo "Usage: $0 [-n namespace] [-k key] secrets"
+  exit 1;
+}
+
+function decode() {
+  local flags="$1"
+  local secret="$2"
+  local key="$3"
+  local escaped_key="${key//./\\.}"
+  local encoded=$(kubectl $flags get secret $secret -o jsonpath="{.data['$escaped_key']}")
+  local decoded=$(echo "$encoded" | base64 --decode)
+  echo "$decoded"
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -n|--namespace)
+      flags+="-n $2"
+      shift; shift; # past value
+      ;;
+    -k|--key)
+      data_key="$2"
+      shift; shift; # past value
+      ;;
+    *) # unknown option
+      POSITIONAL+=("$1") # save it in an array for later
+      shift # past argument
+      ;;
+  esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [[ $# -eq 0 ]]; then
+  usage
+fi
+
+for secret in $@
+do
+  if [[ ${#POSITIONAL[@]} -gt 1 ]]; then
+    echo "${red}Secret:${end} ${blu}${secret}${end}"
+  fi
+
+  keys=$(kubectl $flags get secret $secret -o json | jq -r '.data | keys | join("\n")')
+
+  if [[ ${#data_key} -gt 0 ]]; then
+    if [[ $(echo "${keys}" | grep -e "\<${data_key}\>") == "$data_key" ]]; then
+      decoded=$(decode "$flags" $secret $data_key)
+      echo "${yel}${data_key}:${end}"
+      echo "$decoded"
+    else
+      echo "Key ${yel}${data_key}${end} not found"
+    fi
+  else
+    for key in $keys
+    do
+      decoded=$(decode "$flags" $secret $key)
+      echo "${yel}${key}:${end}"
+      echo "$decoded"
+    done
+  fi
+done

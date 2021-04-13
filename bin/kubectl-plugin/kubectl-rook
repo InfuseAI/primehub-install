@@ -1,0 +1,440 @@
+#! /bin/bash
+set -eou pipefail
+
+check_kubectl() {
+  if hash kubectl 2>/dev/null; then
+    KUBECTL=kubectl
+  elif hash kubectl.exe 2>/dev/null; then
+    KUBECTL=kubectl.exe
+  else
+    echo >&2 "kubectl is not installed"
+    exit 1
+  fi
+}
+
+check_rook_namespace() {
+  $KUBECTL get namespace rook 2> /dev/null > /dev/null || (echo >&2 "No rook installed"; exit 1)
+}
+
+usage() {
+  local SELF
+  SELF="rook"
+  if [[ "$(basename "$0")" == kubectl-* ]]; then # invoked as plugin
+    SELF="kubectl rook"
+  fi
+
+  cat <<EOF
+USAGE:
+  $SELF [mgr|mon|osd|prepare|operator|tool|agent|<pod>] [id]            : List rook pod status
+  $SELF mgr|mon|osd|operator|tool|agent id logs   [options]             : Logs selected rook pod
+  $SELF mgr|mon|osd|operator|tool|agent id delete [options]             : Delete selected rook pod
+  $SELF mgr|mon|osd|operator|tool|agent id exec   <cmd> [args]          : Exec selected rook pod
+  $SELF <pod> logs                                [options]             : Logs selected rook pod
+  $SELF <pod> delete                              [options]             : Delete selected rook pod
+  $SELF <pod> exec                                <cmd> [args]          : Exec selected rook pod
+  $SELF delete operator|mgr|mon|osd|<pod>         [id] [options]        : Delete selected rook pod
+  $SELF logs operator|mgr|mon|osd|prepare|<pod>   [id] [options]        : Show log of rook pod
+  $SELF deploy operator|mgr|mon|osd|prepare|<pod> [id] [up|down|delete] : Show deploy of rook pod
+  $SELF dashboard                                                       : Show dashboard info
+  $SELF -h,--help                                                       : show this message
+EOF
+}
+
+rook_pod_status() {
+  local namespace='rook'
+  local format="%-36s %-12s %-10s %-8s %-6s\n"
+  local title=$(printf "$format" "NAME" "NODE" "STATUS" "RESTARTS" "AGE")
+  local IFS=$' '
+  case "${1:-}" in
+    'mgr')
+      shift;
+      local id=${1:-}
+      local id_label=''
+      if [[ "${id}" != '' ]]; then shift; id_label=",ceph_daemon_id=${id}"; fi
+      local pods=$($KUBECTL get pod -n rook -l app=rook-ceph-mgr${id_label} -o wide | grep -v NAME)
+    ;;
+    'mon')
+      shift;
+      local id=${1:-}
+      local id_label=''
+      if [[ "${id}" != '' ]]; then shift; id_label=",ceph_daemon_id=${id}"; fi
+      local pods=$($KUBECTL get pod -n rook -l app=rook-ceph-mon${id_label} -o wide | grep -v NAME)
+    ;;
+    'osd')
+      shift;
+      local id=${1:-}
+      local id_label=''
+      if [[ "${id}" != '' ]]; then shift; id_label=",ceph-osd-id=${id}"; fi
+      local pods=$($KUBECTL get pod -n rook -l app=rook-ceph-osd${id_label} -o wide | grep -v NAME)
+    ;;
+    'prepare')
+      shift;
+      local pods=$($KUBECTL get pod -n rook -l app=rook-ceph-osd-prepare -o wide | grep -v NAME)
+    ;;
+    'tool')
+      shift;
+      local pods=$($KUBECTL get pod -n rook -l app=rook-ceph-tools -o wide | grep -v NAME)
+    ;;
+    'operator')
+      shift;
+      namespace='rook-system'
+      local pods=$($KUBECTL get pod -n rook-system -l app=rook-ceph-operator -o wide | grep -v NAME)
+    ;;
+    'agent')
+      shift;
+      local host=${1:-}
+      local host_filter=''
+      namespace='rook-system'
+      if [[ "${host}" != '' ]]; then shift; fi
+      local pods=$($KUBECTL get pod -n rook-system -l app=rook-ceph-agent -o wide | grep -v NAME | grep "${host}")
+    ;;
+    *)
+      local rook_pods=$($KUBECTL get pod -n rook -o wide | grep -v NAME | grep -v rook-ceph-osd-prepare | grep -v rook-ceph-tools)
+      local operator_pod=$($KUBECTL get pod -n rook-system -l app=rook-ceph-operator -o wide | grep -v NAME)
+      local pods=$(printf "%s\n%s" "$rook_pods" "$operator_pod")
+  esac
+
+  local IFS=$'\n'
+  local pod_count=0
+  printf "$format" "NAME" "NODE" "STATUS" "RESTARTS" "AGE"
+  for pod in ${pods}; do
+    local pod_name=$(awk '{print $1}' <<< "$pod")
+    local pod_status=$(awk '{print $3}' <<< "$pod")
+    local pod_retry=$(awk '{print $4}' <<< "$pod")
+    local pod_age=$(awk '{print $5}' <<< "$pod")
+    local pod_host=$(awk '{print $7}' <<< "$pod")
+    printf "$format" "${pod_name}" "${pod_host}" "${pod_status::10}" "${pod_retry}" "${pod_age}"
+    pod_count=$((pod_count+1))
+  done
+  if (( $pod_count == 1 )); then
+    case "${1:-list}" in
+      list)
+      ;;
+      logs)
+        shift
+        echo "[Logs] ${pod_name}"
+        $KUBECTL logs -n ${namespace} ${pod_name} $@
+      ;;
+      delete)
+        shift
+        echo "[Delete] ${pod_name}"
+        $KUBECTL delete pods -n ${namespace} ${pod_name} $@
+      ;;
+      exec)
+        shift
+        echo "[Exec] ${pod_name}"
+        $KUBECTL exec -it -n ${namespace} ${pod_name} -- $@
+      ;;
+    esac
+  fi
+}
+
+usage_delete() {
+    local SELF
+  SELF="rook"
+  if [[ "$(basename "$0")" == kubectl-* ]]; then # invoked as plugin
+    SELF="kubectl rook"
+  fi
+
+  cat <<EOF
+USAGE:
+  $SELF delete <pod name>                     : Delete the selected rook pod
+  $SELF delete operator                       : Delete the rook operator
+  $SELF delete osd <osd id>                   : Delete the selected osd pod
+  $SELF delete mon <mon id>                   : Delete the selected mon pod
+  $SELF delete mgr <mgr id>                   : Delete the selected mgr pod
+  $SELF delete -h,--help                      : show this message
+EOF
+}
+
+get_rook_pod_label() {
+  local role=${1:-}
+  local id=${2:-}
+  if [[ -z "$role" ]] || [[ -z "$id" ]]; then
+    exit 1
+  fi
+  local role_label="app=rook-ceph-$role"
+  case "$role" in
+    osd)
+      local id_label="ceph-osd-id=$id"
+    ;;
+    mon|mgr)
+      local id_label="ceph_daemon_id=$id"
+    ;;
+    prepare)
+      local role_label="app=rook-ceph-osd-prepare"
+      local id_label="job-name=rook-ceph-osd-prepare-$id"
+    ;;
+    *)
+      >&2 echo "Unspport role $role"
+      exit 1
+    ;;
+  esac
+  if [[ -z $($KUBECTL get pod -n rook -l $role_label,$id_label) ]]; then
+    >&2 echo "No such $role id $id in ceph cluster"
+    exit 1
+  fi
+
+  echo "-l $role_label,$id_label"
+}
+
+rook_pod_delete() {
+  local pod_delete_rule=''
+  local namespace='rook'
+  case "${1:-}" in
+    operator)
+      shift
+      namespace='rook-system'
+      pod_delete_rule='-l app=rook-ceph-operator'
+    ;;
+    osd|mon|mgr)
+      local role="${1:-}"
+      local id="${2:-}"
+      shift; shift || (>&2 usage_delete; exit 1)
+      pod_delete_rule=$(get_rook_pod_label $role $id)
+    ;;
+    '')
+      usage_delete
+      exit 1
+    ;;
+    -h|--help)
+      usage_delete
+      exit
+    ;;
+    *)
+      local pod_name=${1}
+      shift;
+      if [[ $pod_name == *"rook-ceph-agent"* ]] ||
+         [[ $pod_name == *"rook-ceph-operator"* ]] ||
+         [[ $pod_name == *"rook-discover"* ]]; then
+        namespace='rook-system'
+      fi
+      if [[ -z $($KUBECTL get pod -n $namespace $pod_name) ]]; then
+        exit 1
+      fi
+      pod_delete_rule=$pod_name
+    ;;
+  esac
+
+  if [[ -z "$pod_delete_rule" ]]; then
+    >&2 echo 'No selected pod exist'
+    exit 1
+  fi
+
+  $KUBECTL delete pod -n $namespace $pod_delete_rule $@
+}
+
+get_pods_name_by_label() {
+  local namespace=${1}; shift
+  local labels=""
+  while (( "$#" )); do
+    labels="${1},${labels}"
+    shift
+  done
+  $KUBECTL get pod -n ${namespace} -l "${labels%?}" | grep -v NAME | awk '{print $1}' || exit 1
+}
+
+usage_logs() {
+    local SELF
+  SELF="rook"
+  if [[ "$(basename "$0")" == kubectl-* ]]; then # invoked as plugin
+    SELF="kubectl rook"
+  fi
+
+  cat <<EOF
+USAGE:
+  $SELF logs <pod name>                     : Show logs of the selected rook pod
+  $SELF logs operator                       : Show logs of the rook operator
+  $SELF logs osd <osd id>                   : Show logs of the selected osd pod
+  $SELF logs mon <mon id>                   : Show logs of the selected mon pod
+  $SELF logs mgr <mgr id>                   : Show logs of the selected mgr pod
+  $SELF logs prepare <host>                 : Show logs of the selected osd prepare pod
+  $SELF logs -h,--help                      : show this message
+EOF
+}
+
+rook_pod_logs() {
+  local pod_name=''
+  local namespace='rook'
+  local container_name=''
+  case "${1:-}" in
+    operator)
+      local role="${1}"; shift
+      local namespace='rook-system'
+      local label='-l app=rook-ceph-operator'
+      if [[ -z "${label}" ]]; then usage_logs; exit 1; fi
+      pod_name=$($KUBECTL get pod -n $namespace $label | grep -v NAME | awk '{print $1}')
+    ;;
+    osd|mon|mgr)
+      local role="${1}"
+      local id="${2:-}"
+      shift; shift || (>&2 usage_logs; exit 1)
+      local label=$(get_rook_pod_label $role $id)
+      if [[ -z "${label}" ]]; then usage_logs; exit 1; fi
+      pod_name=$($KUBECTL get pod -n $namespace $label | grep -v NAME | awk '{print $1}')
+    ;;
+    prepare)
+      local role="${1}";
+      local id="${2:-}";
+      shift; shift || (>&2 usage_logs; exit 1)
+      local label=$(get_rook_pod_label $role $id)
+      if [[ -z "${label}" ]]; then usage_logs; exit 1; fi
+      pod_name=$($KUBECTL get pod -n $namespace $label | grep -v NAME | awk '{print $1}')
+      container_name='provision'
+    ;;
+    '')
+      usage_logs
+      exit 1
+    ;;
+    -h|--help)
+      usage_logs
+      exit
+    ;;
+    *)
+      pod_name="${1}"; shift
+      if [[ $pod_name == *"rook-ceph-agent"* ]] ||
+         [[ $pod_name == *"rook-ceph-operator"* ]] ||
+         [[ $pod_name == *"rook-discover"* ]]; then
+        namespace='rook-system'
+      fi
+      if [[ -z $($KUBECTL get pod -n $namespace $pod_name) ]]; then
+        exit 1
+      fi
+    ;;
+  esac
+
+  if [[ -z "$pod_name" ]]; then
+    >&2 echo 'No selected pod exist'
+    exit 1;
+  fi
+
+  IFS=$' '
+  for name in "${pod_name}"; do
+    $KUBECTL logs -n $namespace $name $container_name $@
+  done
+}
+
+usage_deploy() {
+    local SELF
+  SELF="rook"
+  if [[ "$(basename "$0")" == kubectl-* ]]; then # invoked as plugin
+    SELF="kubectl rook"
+  fi
+
+  cat <<EOF
+USAGE:
+  $SELF deploy                                : Show all rook deploy
+  $SELF deploy <deploy name>                  : Show select rook deploy
+  $SELF deploy osd|mgr|mon <id>               : Show select rook deploy by role
+  $SELF deploy <deploy name>    up            : Scale up select rook deploy
+  $SELF deploy osd|mgr|mon <id> up            : Scale up select rook deploy by role
+  $SELF deploy <deploy name>    down          : Scale down select rook deploy
+  $SELF deploy osd|mgr|mon <id> down          : Scale down select rook deploy by role
+  $SELF deploy <deploy name>    delete        : Delete select rook deploy
+  $SELF deploy osd|mgr|mon <id> delete        : Delete select rook deploy by role
+EOF
+}
+
+rook_deploy() {
+  local namespace='rook'
+  local name=''
+  local action='list'
+
+  if [[ "${1:-}" == "" ]]; then
+    $KUBECTL get deploy -n ${namespace}
+  else
+    case "${1}" in
+      osd|mon|mgr)
+        local role=${1}; shift
+        local id=${1:-}
+        if [[ $id == '' ]]; then usage_deploy; exit 1; fi
+        name="rook-ceph-${role}-${id}"
+      ;;
+      *)
+        name=${1}
+      ;;
+    esac
+    shift
+
+    case "${1:-list}" in
+      list)
+        $KUBECTL get deploy -n ${namespace} $name
+      ;;
+      up)
+        $KUBECTL scale deploy -n ${namespace} $name --replicas 1
+      ;;
+      down)
+        $KUBECTL scale deploy -n ${namespace} $name --replicas 0
+      ;;
+      delete)
+        $KUBECTL delete deploy -n ${namespace} $name
+      ;;
+      *)
+        echo "Unsupport action!"
+        usage_deploy
+        exit 1
+      ;;
+    esac
+  fi
+}
+
+rook_dashboard() {
+  local username=$($KUBECTL ceph config get mgr.a mgr/dashboard/username)
+  local password=$($KUBECTL get secret -n rook  rook-ceph-dashboard-password -o jsonpath='{.data.password}' | base64 -d)
+  local url='N/A'
+
+  if [[ -z "$KUBECTL get ing -n rook rook-ceph-mgr-dashboard" ]]; then
+    echo "Ceph dashboard ingress not configured"
+    echo "Please run ssh tunnel to access ceph mgr dashboard"
+    echo ""
+  else
+    url="https://$($KUBECTL get ingress -n rook  rook-ceph-mgr-dashboard  | grep rook-ceph-mgr-dashboard  | awk '{print $2}')$($KUBECTL ceph config get mgr.a mgr/dashboard/url_prefix)"
+  fi
+
+  echo "[ Ceph Dashboard ]"
+  echo "  URL: $url"
+  echo "  Username: $username"
+  echo "  Password: $password"
+}
+
+main() {
+  check_kubectl
+  check_rook_namespace
+  cmd="${1:-}"
+  case "$cmd" in
+    # List pod status
+    mon|mgr|osd|prepare|operator|tool|agent|'')
+      rook_pod_status $@
+    ;;
+    delete)
+      shift
+      rook_pod_delete $@
+    ;;
+    logs)
+      shift
+      rook_pod_logs $@
+    ;;
+    deploy)
+      shift
+      rook_deploy $@
+    ;;
+    dashboard)
+      shift
+      rook_dashboard
+    ;;
+    --debug)
+      shift
+      set -x
+      main $@
+    ;;
+    -h|--help)
+      usage
+    ;;
+    *)
+      usage
+      exit 1
+    ;;
+  esac
+}
+
+main "$@"

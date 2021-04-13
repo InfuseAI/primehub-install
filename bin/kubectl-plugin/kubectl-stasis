@@ -1,0 +1,159 @@
+#!/bin/bash
+# set -x
+# set -euo pipefail
+
+
+usage () {
+  STASIS=$(basename $0)
+  echo "Scale up/down controllers with stored replicas number in annotation."
+  echo "The information is stored at 'stasis.k8s.io/replicas'"
+  echo "" 
+  echo "Usage: $STASIS [-n namespace] [-l selector] command type [object]"
+  echo ""
+  echo "Examples:"
+  echo "  # freeze the statefulset"
+  echo "  $STASIS -n hub freeze sts"
+  echo ""
+  echo "  # thaw the statefulset" 
+  echo "  $STASIS -n hub thaw sts"
+  echo ""
+  echo "  # freeze the statefulset with selector"
+  echo "  $STASIS -n hub -l foo=bar freeze sts"
+  echo ""
+  echo "  # freeze with the specified object "
+  echo "  $STASIS -n hub freeze deploy hub"
+  echo ""
+  echo "  # check the status  "
+  echo "  $STASIS -n hub status deploy"
+  echo ""
+  echo "Options:"
+  echo "  -n --namepsaces   the namespace"
+  echo "  -l --selector     the selectror"
+  echo "  -h                print this help"
+  exit
+}
+
+POSITIONAL=()
+
+NAMESPACE=default
+ARGS=""
+
+while [[ $# -gt 0 ]]
+  do
+  key="$1"
+  
+  case $key in
+      -l|--selector)
+      ARGS="$ARGS $1 $2"
+      shift # past argument
+      shift # past value
+      ;;
+      -n|--namespace)
+      NAMESPACE=$2
+      shift # past argument
+      shift # past value
+      ;;
+      -h)
+      usage
+      ;;
+      *)    # unknown option
+      POSITIONAL+=("$1") # save it in an array for later
+      shift # past argument
+      ;;
+  esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+get_old_replicas() {
+  local type=$1
+  local object=$2
+  kubectl -n $NAMESPACE get $type $object -o jsonpath='{.metadata.annotations.stasis\.k8s\.io/replicas}'
+}
+freeze() {
+  local type=$1
+  local object=$2
+  local replicas=$3
+  local old_replicas=$(get_old_replicas $type $object)
+
+  if [[ -n $old_replicas ]]; then
+    echo "$type/$object: has been frozen[${old_replicas}]"
+    return
+  fi
+  
+  echo "$type/$object: scale from $replicas to 0"
+  kubectl -n $NAMESPACE scale $type $object --replicas=0 > /dev/null
+  kubectl -n $NAMESPACE annotate $type $object stasis.k8s.io/replicas=$replicas --overwrite > /dev/null
+}
+
+thaw() {
+  local type=$1
+  local object=$2
+  local old_replicas=$(get_old_replicas $type $object)
+
+  if [[ -z $old_replicas ]]; then
+    echo "$type/$object: has been thawed"
+    return
+  fi
+
+  echo "$type/$object: scale from 0 to $old_replicas"
+  kubectl -n $NAMESPACE scale $type $object --replicas=$old_replicas > /dev/null
+  kubectl -n $NAMESPACE annotate $type $object stasis.k8s.io/replicas- --overwrite > /dev/null
+}
+
+status() {
+  local type=$1
+  local object=$2
+  local old_replicas=$(get_old_replicas $type $object)
+
+  if [[ -n $old_replicas ]]; then
+    echo "$type/$object: frozen[${old_replicas}]"
+    return
+  else
+    echo "$type/$object: thawed"
+  fi
+}
+
+
+
+COMMAND=$1
+TYPE=$2
+
+case $COMMAND in
+  freeze|thaw|status)
+  ;;
+  *)
+  echo "unknown command $COMMAND"
+  usage
+  ;; 
+esac
+
+
+if [[ $# -eq 2 ]]; then
+  for obj in $(kubectl get $ARGS -n $NAMESPACE $TYPE -o jsonpath='{range .items[*]}{.metadata.name}{","}{.spec.replicas}{"\n"}{end}'); do
+    object=$(echo $obj | cut -d',' -f1)
+    count=$(echo $obj | cut -d',' -f2)
+    if [[ $COMMAND == "freeze" ]]; then
+      freeze $TYPE $object $count
+    elif [[ $COMMAND == "thaw" ]]; then
+      thaw $TYPE $object
+    elif [[ $COMMAND == "status" ]]; then
+      status $TYPE $object
+    fi
+  done
+elif [[ $# -eq 3 ]]; then
+  obj=$(kubectl get $ARGS -n $NAMESPACE $TYPE $3 -o jsonpath='{.metadata.name}{","}{.spec.replicas}')
+  if [[ -z $obj ]]; then
+    exit 1
+  fi
+  object=$(echo $obj | cut -d',' -f1)
+  count=$(echo $obj | cut -d',' -f2)
+  if [[ $COMMAND == "freeze" ]]; then
+    freeze $TYPE $object $count
+  elif [[ $COMMAND == "thaw" ]]; then
+    thaw $TYPE $object
+  elif [[ $COMMAND == "status" ]]; then
+    status $TYPE $object
+  fi
+else
+  usage
+fi 

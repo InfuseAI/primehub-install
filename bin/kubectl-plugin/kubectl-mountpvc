@@ -1,0 +1,226 @@
+#!/bin/bash
+
+IMAGE=""
+NAMESPACE="default"
+COMMAND=false
+REPLICAS=1
+REQUESTS=""
+LIMITS=""
+declare -a COMMANDS
+declare -a ARGS
+declare -a PVCS
+
+usage_exit() {
+  MOUNTPVC=$(basename $0)
+  echo "Print a deployment in which it mount the given PVCs. The mounted PVCs are located at '/pvcs/<pvc-name>'"
+  echo "The output is supposed to be piped to 'kubectl apply -f -'"
+  echo ""
+  echo "Usage: $0 [-n namespace] [--image image] [--pvc pvc1] [--pvc pvc2] <name> -- args "
+  echo ""
+  echo "Examples:"
+  echo "  # Output a deployment with a pvc"
+  echo "  $MOUNTPVC --pvc claim-phadmin mount-pvc"
+  echo ""
+  echo "  # Apply a deployment with a pvc"
+  echo "  $MOUNTPVC --pvc claim-phadmin mount-pvc | kubectl apply -f - "
+  echo ""
+  echo "  # Specify namespace and image"
+  echo "  $MOUNTPVC -n hub --image 'busybox' --pvc claim-phadmin mount-pvc"
+  echo ""
+  echo "  # Set resource requests and limits"
+  echo "  $MOUNTPVC -n hub --image 'busybox' --pvc claim-phadmin --limits cpu=200m,memory=128Mi --requests cpu=200m,memory=128M mount-pvc"
+  echo ""
+  echo "  # Mount multiple PVCs"
+  echo "  $MOUNTPVC -n hub --pvc dataset-1 --pvc dataset-2 mount-pvc"
+  echo ""
+  echo "  # Override the args"
+  echo "  $MOUNTPVC -n hub --pvc claim-phadmin mount-pvc -- <args> <arg2> ... <argN> "
+  echo ""
+  echo "  # Override the command and args"
+  echo "  $MOUNTPVC -n hub --pvc claim-phadmin mount-pvc --command -- <cmd> <args> <arg2> ... <argN> "
+  echo ""
+  echo "Options:"
+  echo "  -n --namepsace    the namespace"
+  echo "     --image        the image. (default is busybox)"
+  echo "     --replicas     the replicas. (default is 1)"
+  echo "     --command      to override the command"
+  echo "     --pvc          the pvc to mount"
+  echo "     --requests     resource requests. (e.g. --limits cpu=200m,128Mi)"
+  echo "     --limits       resource limits. (e.g. --limits cpu=200m,128Mi)"
+  echo "  -h --help         print this help"
+  exit 1
+}
+
+merge_by_comma() {
+  local IFS=','
+  echo "$*"
+}
+
+# Parse the options
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    --pvc)
+      PVCS+=("$2")
+      shift; shift
+      ;;
+    --image)
+      IMAGE="$2"
+      shift; shift
+      ;;
+    --requests)
+      REQUESTS="$2"
+      shift; shift
+      ;;
+    --limits)
+      LIMITS="$2"
+      shift; shift
+      ;;
+    -n|--namespace)
+      NAMESPACE="$2"
+      shift; shift
+      ;;
+    --command)
+      COMMAND=true
+      shift;
+      ;;
+    --replicas)
+      REPLICAS="$2"
+      shift; shift
+      ;;
+    --)
+      shift;
+      if [[ "${COMMAND}" == "true" ]]; then
+        COMMANDS+=("$1")
+        shift
+      fi
+
+      for arg in "$@"; do
+        ARGS+=("${arg}")
+      done
+      break
+      ;;
+    -h|--help)
+      usage_exit
+      ;;
+    *)
+      positional+=("$1")
+      shift
+      ;;
+esac
+done
+set -- "${positional[@]}" # restore positional parameters
+
+if [[ "${#PVCS[@]}" -eq 0 ]]; then
+  usage_exit
+fi
+
+if [[ $# -eq 0 ]]; then
+  usage_exit
+fi
+
+if [[ -z "${IMAGE:+x}" ]]; then
+  IMAGE="busybox"
+  if [[ ${#COMMANDS[@]} -eq 0 && ${#ARGS[@]} -eq 0 ]]; then
+    COMMANDS+=("/bin/sh" "-c")
+    ARGS+=("sleep 1000d")
+  fi
+fi
+
+NAME="${1}"
+
+read -r -d '' JSON <<EOF
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "labels": {
+      "app": "${NAME}"
+    },
+    "name": "${NAME}",
+    "namespace": "${NAMESPACE}"
+  },
+  "spec": {
+    "replicas": ${REPLICAS},
+    "selector": {
+      "matchLabels": {
+        "app": "${NAME}"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "${NAME}"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "${IMAGE}",
+            "name": "${NAME}",
+            "volumeMounts": []
+          }
+        ],
+        "volumes": []
+      }
+    }
+  }
+}
+EOF
+
+
+# Append PVCs
+for pvc in "${PVCS[@]}"
+do
+  JSON=$(echo "${JSON}" | \
+    jq -c ". | \
+    .spec.template.spec.containers[0].volumeMounts |= . + [{\"name\": \"${pvc}\",\"mountPath\": \"/pvcs/${pvc}\"}] | \
+    .spec.template.spec.volumes |= . + [{\"name\": \"${pvc}\",\"persistentVolumeClaim\": {\"claimName\": \"${pvc}\"}}]"
+  )
+done
+
+# Set the resources
+set_resources() {
+  local type="$1"
+  local values="$2"
+  local jq_command="."
+  local -a resources
+  IFS=',' read -ra resources <<< "$values"
+  for resource in "${resources[@]}"; do
+      IFS="=" read -r key value <<< "$resource"
+      jq_command+="| .spec.template.spec.containers[0].resources.${type}.${key}=\"${value}\""
+  done
+
+  jq -c "${jq_command}"
+}
+
+if [[ -n "${REQUESTS}" ]]; then
+  JSON=$(echo "${JSON}" | set_resources requests "${REQUESTS}")
+fi
+
+if [[ -n "${LIMITS}" ]]; then
+  JSON=$(echo "${JSON}" | set_resources limits "${LIMITS}")
+fi
+
+# Append commands
+if [[ ${#COMMANDS[@]} -gt 0 ]]; then
+  for command in "${COMMANDS[@]}"
+  do
+    JSON=$(echo "${JSON}" | \
+      jq -c ". | .spec.template.spec.containers[0].command |= . + [\"${command}\"]"
+    )
+  done
+fi
+
+# Append arguments
+if [[ ${#ARGS[@]} -gt 0 ]]; then
+  for arg in "${ARGS[@]}"
+  do
+    JSON=$(echo "${JSON}" | \
+      jq -c ". | .spec.template.spec.containers[0].args |= . + [\"${arg}\"]"
+    )
+  done
+fi
+
+# output the result
+echo "${JSON}"

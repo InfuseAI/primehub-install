@@ -1,0 +1,65 @@
+---
+# Put your Helm override values here.
+#
+# jupyterhub:
+#   singleuser:
+#     storage:
+#       capacity: 50Gi
+#       dynamic:
+#         storageClass:
+#   hub:
+#     db:
+#       pvc:
+#         storageClassName:
+#     extraConfigMap:
+#       keycloakRealm: primehub
+#       scopeRequired:
+#       primehubRolePrefix:
+#     allowNamedServers: false
+#   prePuller:
+#     continuous:
+#       enabled: true
+#     extraImages:
+#       cpu:
+#         name: registry.aiacademy.tw/aiacademy/docker-stacks/aia-notebook
+#         tag: latest-cpu
+#         policy: Always
+#       gpu:
+#         name: registry.aiacademy.tw/aiacademy/docker-stacks/aia-notebook
+#         tag: latest-gpu
+#         policy: Always
+#
+# ui:
+#   replicas: 1
+#   resources: {}
+#   nodeSelector: {}
+#   tolerations: []
+#   affinity: {}
+# graphql:
+#   replicas: 1
+#   resources: {}
+#   nodeSelector: {}
+#   tolerations: []
+#   affinity: {}
+# watcher:
+#   resources: {}
+#   nodeSelector: {}
+#   tolerations: []
+#   affinity: {}
+#
+# controller:
+#   resources:
+#     limits:
+#       cpu: 100m
+#       memory: 30Mi
+#     requests:
+#       cpu: 100m
+#       memory: 20Mi
+#
+#   customImage:
+#     registryEndpoint: https://gcr.io
+#     registryUsername: _json_key
+#     registryPassword: _password_
+#     pushRepoPrefix: gcr.io/foobar
+#     buildJob:
+#       ephemeralStorage: 10Gi
