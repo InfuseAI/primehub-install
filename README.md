@@ -1,15 +1,26 @@
 # PrimeHub Install
 
-A repo help to install [PrimeHub](https://github.com/InfuseAI/primehub).
+A repository helps you to install [PrimeHub](https://github.com/InfuseAI/primehub).
 
 ## Prerequisites
 
-Please follow the steps of the following link to setup Kubernetes environment.
+Basically, you need:
+
+* A kubernetes cluster with v.17+ and required tools:
+  * kubectl
+  * helm, helm-diff and helmfile
+  * make and jq
+* A domain name or a public IP Address
+
+Please check the details in the official document site:
 https://docs.primehub.io/docs/getting_started/prerequisites
 
 ## Installation Steps
 
-1. Clone the repo `https://github.com/InfuseAI/primehub-install`
+In this repository, we provide a Makefile that uses helmfile configurations to install PrimeHub.
+
+
+1. Clone the repository `httsps://github.com/InfuseAI/primehub-install`
 
     ```bash
     git clone https://github.com/InfuseAI/primehub-install
@@ -24,3 +35,18 @@ https://docs.primehub.io/docs/getting_started/prerequisites
     ```
 
     The installer will ask you to fill the domain name and the password of `keycloak` and `phadmin`. If input empty password, it will help to generate random password.
+
+    ```
+    $ make install
+    Launch command './bin/config_init.sh' ...
+    Create config folder
+    Create .env
+    Please enter PRIMEHUB_DOMAIN: example.primehub.com
+    Please enter KC_PASSWORD: my-password-for-primehub
+    Please enter PH_PASSWORD: my-password-for-primehub
+    ...
+    ```
+
+## Start PrimeHub
+
+  Visit the PrimeHub URL showing at the end of installing process.
