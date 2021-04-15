@@ -36,7 +36,7 @@ In this repository, we provide a Makefile that uses helmfile configurations to i
 
     The installer will ask you to fill the domain name and the password of `keycloak` and `phadmin`. If input empty password, it will help to generate random password.
 
-    ```
+    ```bash
     $ make install
     Launch command './bin/config_init.sh' ...
     Create config folder
@@ -51,27 +51,32 @@ In this repository, we provide a Makefile that uses helmfile configurations to i
 
   Visit the PrimeHub URL showing at the end of installing process.
 
-  ```
+  ```text
   [Status] PrimeHub
 
   PrimeHub:   http://example.primehub.com  ( phadmin / my-password-for-primehub )
   Id Server:  http://example.primehub.com/auth/admin/ ( keycloak / my-password-for-primehub )
   ```
 
-##  Reconfiguration
+## PrimeHub License Apply
+
+  For PrimeHub Enterprise Edition users, the full features need to be enabled by PrimeHub License. Please reference the following link to apply.
+  [Apply license](https://docs.primehub.io/docs/getting_started/install_primehub#apply-license-key-optional)
+
+## Reconfiguration
 
 The repository helps you basic installation, and it is possible to reconfigure it by yourself. 
 
 First, find your configuration directory:
 
-```
+```bash
 ./bin/phenv --effective-path
 /home/ubuntu/.primehub/config/local
 ```
 
 All configurable files in the `effective path`:
 
-```
+```bash
 $ tree -a /home/ubuntu/.primehub/config/local
 /home/ubuntu/.primehub/config/local
 |-- .env
