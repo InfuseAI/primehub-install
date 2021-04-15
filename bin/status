@@ -1,0 +1,34 @@
+#! /bin/bash
+set -euo pipefail
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
+PRIMEHUB_NAMESPACE=${PRIMEHUB_NAMESPACE:-hub}
+
+info() {
+  echo -e "\033[0;32m$1\033[0m"
+}
+
+warn() {
+  echo -e "\033[0;93m$1\033[0m"
+}
+
+error() {
+  echo -e "\033[0;91m$1\033[0m" >&2
+}
+
+primehub_status() {
+  local config_path=$($DIR/phenv --effective-path)
+  set -a; source ${config_path}/.env; set +a
+
+  PRIMEHUB_URL=${PRIMEHUB_SCHEME}://${PRIMEHUB_DOMAIN}
+  KC_URL=${KC_SCHEME}://${KC_DOMAIN}/auth
+
+  info "[Status] PrimeHub"
+  echo ""
+  echo "  PrimeHub:   $PRIMEHUB_URL  ( phadmin / ${PH_PASSWORD} )"
+  echo "  Id Server:  $KC_URL/admin/ ( ${KC_USER} / ${KC_PASSWORD} )"
+  echo ""
+}
+
+primehub_status

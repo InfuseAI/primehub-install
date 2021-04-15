@@ -29,7 +29,10 @@ sync:
 	@echo "Launch command './bin/phenv helmfile sync' ..."
 	@bin/phenv helmfile sync
 
-install: init sync
+status:
+	@bin/status
+
+install: init sync status
 
 destroy:
 	@echo "Launch command './bin/phenv helmfile destroy' ..."
