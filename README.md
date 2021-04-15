@@ -32,6 +32,10 @@ In this repository, we provide a Makefile that uses helmfile configurations to i
 
     ```bash
     make install
+
+    # Or install PrimeHub with specific version.
+    #   PrimeHub Release Versions: https://github.com/InfuseAI/primehub/releases
+    make install PRIMEHUB_VERSION=v3.4.1
     ```
 
     The installer will ask you to fill the domain name and the password of `keycloak` and `phadmin`. If input empty password, it will help to generate random password.
