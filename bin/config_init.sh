@@ -44,8 +44,9 @@ prepare_env_varible() {
   fi
 }
 
-is_microk8s_cluster() {
-  if kubectl get node --show-labels | grep microk8s.io/cluster=true > /dev/null; then
+search_storage_class() {
+  local target=$1
+  if kubectl get sc | grep $target > /dev/null; then
     return 0
   fi
   return -1
@@ -78,7 +79,13 @@ init_env() {
 
   KEYCLOAK_DEPLOY=${KEYCLOAK_DEPLOY:-true}
   METACONTROLLER_DEPLOY=${METACONTROLLER_DEPLOY:-true}
+
   PRIMEHUB_STORAGE_CLASS=${PRIMEHUB_STORAGE_CLASS:-$(kubectl get sc | grep '(default)' | cut -d' ' -f1 | head)}
+  if search_storage_class "nfs-client"; then
+    GROUP_VOLUME_STORAGE_CLASS="nfs-client"
+  elif search_storage_class "microk8s-hostpath"; then
+    GROUP_VOLUME_STORAGE_CLASS="microk8s-hostpath"
+  fi
 
   # generate random
   ADMIN_UI_GRAPHQL_SECRET_KEY=${ADMIN_UI_GRAPHQL_SECRET_KEY:-$(openssl rand -hex 32)}
