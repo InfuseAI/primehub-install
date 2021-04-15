@@ -4,7 +4,7 @@ repositories:
 
 charts:
   - name: primehub
-    namespace: hub
+    namespace: {{ env "PRIMEHUB_NAMESPACE" | default "hub" }}
     labels:
       app: primehub
       release: primehub

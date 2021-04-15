@@ -17,7 +17,7 @@
 {{$PRIMEHUB_FEATURE_MODEL_DEPLOYMENT:= (env "PRIMEHUB_FEATURE_MODEL_DEPLOYMENT" | default "false")}}
 {{$PRIMEHUB_FEATURE_USAGE := (env "PRIMEHUB_FEATURE_USAGE" | default "true")}}
 
-{{$PRIMEHUB_FEATURE_STORE:= (env "PRIMEHUB_FEATURE_STORE" | default "false")}}
+{{$PRIMEHUB_FEATURE_STORE:= (env "PRIMEHUB_FEATURE_STORE" | default "true")}}
 {{$PRIMEHUB_STORE_ACCESS_KEY:= (env "PRIMEHUB_STORE_ACCESS_KEY")}}
 {{$PRIMEHUB_STORE_SECRET_KEY:= (env "PRIMEHUB_STORE_SECRET_KEY")}}
 {{$MINIO_S3GATEWAY_ACCESS_KEY:= (env "MINIO_S3GATEWAY_ACCESS_KEY")}}
@@ -95,27 +95,6 @@ jupyterhub:
   enabled: false
   {{- end }}
   hub:
-    annotations:
-      checksum/primehub-config-map: {{ exec "bash" (list "-c" "ls ../../modules/charts/primehub/scripts/jupyterhub/config/*.py ../../modules/charts/primehub/templates/jupyterhub/configmap.yaml | xargs cat") | sha256sum }}
-    extraContainers:
-    - name: statsd-to-prometheus
-      {{- if env "PRIMEHUB_AIRGAPPED_IMAGE_PREFIX" }}
-      image: {{ env "PRIMEHUB_AIRGAPPED_IMAGE_PREFIX" }}prom/statsd-exporter:v0.9.0
-      {{- else }}
-      image: prom/statsd-exporter:v0.9.0
-      {{- end }}
-      imagePullPolicy: IfNotPresent
-      ports:
-      - containerPort: 9102
-      - containerPort: 9125
-        protocol: UDP
-      resources:
-        limits:
-          cpu: 50m
-          memory: 256Mi
-        requests:
-          cpu: 50m
-          memory: 256Mi
     db:
       pvc:
         storageClassName: {{ $PRIMEHUB_STORAGE_CLASS }}
@@ -158,7 +137,11 @@ ingress:
     kubernetes.io/ingress.class: nginx
     kubernetes.io/tls-acme: "true"
   hosts:
+  {{ if (regexFind "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" $PRIMEHUB_DOMAIN) }}
+  - null
+  {{ else }}
   - {{ $PRIMEHUB_DOMAIN }}
+  {{ end }}
   {{ if eq $PRIMEHUB_SCHEME "https" }}
   tls:
   - hosts:

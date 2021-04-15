@@ -44,6 +44,13 @@ prepare_env_varible() {
   fi
 }
 
+is_microk8s_cluster() {
+  if kubectl get node --show-labels | grep microk8s.io/cluster=true > /dev/null; then
+    return 0
+  fi
+  return -1
+}
+
 init_env() {
   local envpath="$CONFIG_PATH/.env"
 
@@ -67,6 +74,7 @@ init_env() {
 
   KC_USER=${KC_USER:-keycloak}
   KC_REALM=${KC_REALM:-primehub}
+  KC_SVC_URL="http://keycloak-http.${PRIMEHUB_NAMESPACE}/auth"
 
   KEYCLOAK_DEPLOY=${KEYCLOAK_DEPLOY:-true}
   METACONTROLLER_DEPLOY=${METACONTROLLER_DEPLOY:-true}
@@ -85,6 +93,7 @@ init_env() {
     PRIMEHUB_DOMAIN
     PRIMEHUB_SCHEME
     PRIMEHUB_STORAGE_CLASS
+    GROUP_VOLUME_STORAGE_CLASS
     PH_DOMAIN
     PH_SCHEME
 
@@ -93,6 +102,7 @@ init_env() {
     KC_USER
     KC_PASSWORD
     KC_REALM
+    KC_SVC_URL
 
     ADMIN_UI_GRAPHQL_SECRET_KEY
 
@@ -121,14 +131,14 @@ init_env() {
 }
 
 init_helm_override() {
-  if [[ -d "${CONFIG_PATH}/helm_override" ]]; then
+  if [[ -f "${CONFIG_PATH}/helm_override/primehub.yaml" ]]; then
     warn "[Skip] Config helm override already existed"
     return
   fi
 
   info "Create helm overrides"
   mkdir -p "$CONFIG_PATH/helm_override"
-  cp $PHROOT/etc/helm_override/* "$CONFIG_PATH/helm_override/"
+  cp $PHROOT/etc/helm_override/primehub.yaml "$CONFIG_PATH/helm_override/primehub.yaml"
 }
 
 show_env() {

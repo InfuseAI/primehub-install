@@ -1,5 +1,10 @@
 .PHONY: help
 
+PRIMEHUB_VERSION=
+PRIMEHUB_PATH=
+PRIMEHUB_NAMESPACE ?= hub
+PRIMEHUB_MODE ?= ee
+
 help:
 	@echo "PrimeHub Install"
 	@echo ""
@@ -29,3 +34,4 @@ install: init sync
 destroy:
 	@echo "Launch command './bin/phenv helmfile destroy' ..."
 	@bin/phenv helmfile destroy
+	@bin/cleanup
