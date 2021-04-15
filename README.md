@@ -50,3 +50,33 @@ In this repository, we provide a Makefile that uses helmfile configurations to i
 ## Start PrimeHub
 
   Visit the PrimeHub URL showing at the end of installing process.
+
+  ```
+  [Status] PrimeHub
+
+  PrimeHub:   http://example.primehub.com  ( phadmin / my-password-for-primehub )
+  Id Server:  http://example.primehub.com/auth/admin/ ( keycloak / my-password-for-primehub )
+  ```
+
+##  Reconfiguration
+
+The repository helps you basic installation, and it is possible to reconfigure it by yourself. 
+
+First, find your configuration directory:
+
+```
+./bin/phenv --effective-path
+/home/ubuntu/.primehub/config/local
+```
+
+All configurable files in the `effective path`:
+
+```
+$ tree -a /home/ubuntu/.primehub/config/local
+/home/ubuntu/.primehub/config/local
+|-- .env
+`-- helm_override
+    `-- primehub.yaml
+```
+
+Please check the [official document site](https://docs.primehub.io/docs/getting_started/configure-primehub-store) to reconfigure settings.
