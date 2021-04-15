@@ -12,8 +12,7 @@ In order to make the cdk image working, you have to provide:
   * USERNAME is used in the resource tag
   * KEY\_NAME is the name of your key used to `ssh` login
 
-
-```
+```bash
 docker run --rm -it -v $HOME/.aws:/root/.aws:ro \
   -e NAME=demo -e USERNAME=demo -e KEY_NAME=demo_key \
   infuseai/cdk:v0.1 cdk deploy
