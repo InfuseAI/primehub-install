@@ -23,7 +23,7 @@ In this repository, we provide a Makefile that uses helmfile configurations to i
 1. Clone the repository `httsps://github.com/InfuseAI/primehub-install`
 
     ```bash
-    git clone https://github.com/InfuseAI/primehub-install
+    git clone https://github.com/InfuseAI/primehub-install.git
     ```
 
 2. Prepare the domain name or public IP address for PrimeHub
