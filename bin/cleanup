@@ -1,0 +1,51 @@
+#! /bin/bash
+set -euo pipefail
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
+PRIMEHUB_NAMESPACE=${PRIMEHUB_NAMESPACE:-hub}
+
+info() {
+  echo -e "\033[0;32m$1\033[0m"
+}
+
+warn() {
+  echo -e "\033[0;93m$1\033[0m"
+}
+
+error() {
+  echo -e "\033[0;91m$1\033[0m" >&2
+}
+
+cleanup_primehub() {
+  local config_path=$($DIR/phenv --effective-path)
+  set -a; source ${config_path}/.env; set +a
+
+  info "[Delete] Primehub CRD"
+  kubectl get crd | grep primehub | cut -d ' ' -f 1 | xargs kubectl delete crd
+
+  info "[Delete] PrimeHub Secret"
+  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-admin-notebook
+  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-admin-ui
+  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-jupyterhub
+
+  info "[Delete] PrimeHub bootstrap job"
+  kubectl delete job primehub-bootstrap -n ${PRIMEHUB_NAMESPACE} || ture
+
+  info "[Delete] PrimeHub minio pvc"
+  kubectl delete -n ${PRIMEHUB_NAMESPACE} pvc export-primehub-minio-0 || true
+
+  info "[Delete] PrimeHub usage db pvc"
+  kubectl delete -n ${PRIMEHUB_NAMESPACE} pvc primehub-usage-data-primehub-usage-db-0 || true
+
+  info "[Delete] Keycloak postgresql pvc"
+  kubectl delete -n ${PRIMEHUB_NAMESPACE} pvc data-keycloak-postgres-0 || true
+
+  info "[Delete] PrimeHub Env"
+  rm ${config_path}/helm_override/primehub.yaml || true
+  rm ${config_path}/.env || true
+
+  info "[Completed] Cleanup PrimeHub"
+}
+
+cleanup_primehub
