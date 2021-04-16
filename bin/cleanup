@@ -22,12 +22,12 @@ cleanup_primehub() {
   set -a; source ${config_path}/.env; set +a
 
   info "[Delete] Primehub CRD"
-  kubectl get crd | grep primehub | cut -d ' ' -f 1 | xargs kubectl delete crd
+  kubectl get crd | grep primehub | cut -d ' ' -f 1 | xargs kubectl delete crd || true
 
   info "[Delete] PrimeHub Secret"
-  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-admin-notebook
-  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-admin-ui
-  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-jupyterhub
+  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-admin-notebook || true
+  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-admin-ui || true
+  kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-jupyterhub || true
 
   info "[Delete] PrimeHub bootstrap job"
   kubectl delete job primehub-bootstrap -n ${PRIMEHUB_NAMESPACE} || ture
