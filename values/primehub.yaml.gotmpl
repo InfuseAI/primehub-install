@@ -42,7 +42,6 @@ primehub:
   {{- end }}
 
   sharedVolumeStorageClass: {{ $GROUP_VOLUME_STORAGE_CLASS }}
-  {{/*sharedVolumeStorageClass: csi-cephfs-dynamic*/}}
 
   {{- if ne $KEYCLOAK_DEPLOY "true" }}
   keycloak:
@@ -214,4 +213,10 @@ usage:
   dbStorageClass: {{ $PRIMEHUB_STORAGE_CLASS }}
 {{- if eq $PRIMEHUB_FEATURE_USAGE "false" }}
   enabled: false
+{{- end }}
+
+{{/* Patch kubletPath when run with microk8s */}}
+{{- if (regexMatch "^microk8s-hostpath$" $PRIMEHUB_STORAGE_CLASS) }}
+rclone:
+  kubeletPath: /var/snap/microk8s/common/var/lib/kubelet
 {{- end }}
