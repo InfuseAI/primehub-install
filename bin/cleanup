@@ -30,8 +30,8 @@ cleanup_primehub() {
   kubectl delete secret -n ${PRIMEHUB_NAMESPACE} primehub-client-jupyterhub || true
 
   info "[Delete] PrimeHub bootstrap job"
-  kubectl delete job primehub-bootstrap -n ${PRIMEHUB_NAMESPACE} || ture
-  kubectl delete job primehub-minio-make-bucket-job -n ${PRIMEHUB_NAMESPACE} || ture
+  kubectl delete job primehub-bootstrap -n ${PRIMEHUB_NAMESPACE} || true
+  kubectl delete job primehub-minio-make-bucket-job -n ${PRIMEHUB_NAMESPACE} || true
 
   info "[Delete] PrimeHub minio pvc"
   kubectl delete -n ${PRIMEHUB_NAMESPACE} pvc export-primehub-minio-0 || true
