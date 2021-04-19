@@ -146,6 +146,7 @@ init_helm_override() {
   info "Create helm overrides"
   mkdir -p "$CONFIG_PATH/helm_override"
   cp $PHROOT/etc/helm_override/primehub.yaml "$CONFIG_PATH/helm_override/primehub.yaml"
+  cp $PHROOT/etc/helm_override/primehub-grafana-dashboard-basic.yaml "$CONFIG_PATH/helm_override/primehub-grafana-dashboard-basic.yaml"
 }
 
 show_env() {
