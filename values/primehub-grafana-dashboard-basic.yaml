@@ -1,0 +1,21 @@
+repositories:
+  - name: infuseai
+    url: https://charts.infuseai.io
+
+charts:
+  - name: primehub-grafana-dashboard-basic
+    namespace: {{ env "GRAFANA_NAMESPACE" | default "monitoring" }}
+    labels:
+      app: primehub-grafana-dashboard
+      release: grafana
+    {{- if env "PRIMEHUB_DASHBOARD_CHART_PATH" }}
+    chart: {{ env "PRIMEHUB_DASHBOARD_CHART_PATH" }}
+    {{- else }}
+    chart: infuseai/primehub-grafana-dashboard-basic
+    {{- end }}
+    {{- if env "PRIMEHUB_DASHBOARD_VERSION" }}
+    version: {{ env "PRIMEHUB_DASHBOARD_VERSION" }}
+    {{- end }}
+    values:
+      - primehub-grafana-dashboard-basic.yaml.gotmpl
+      - {{ env "PRIMEHUB_VALUES_PATH" | default "etc/helm_override" }}/primehub-grafana-dashboard-basic.yaml

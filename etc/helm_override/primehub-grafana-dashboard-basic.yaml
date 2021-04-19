@@ -1,0 +1,8 @@
+# hub:
+#   namespace: hub
+# prometheusOperatorDashboards:
+#   enabled: true
+# jupyterhub:
+#   enabled: true
+# modelDeployment:
+#   enabled: false

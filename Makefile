@@ -34,6 +34,16 @@ status:
 
 install: init sync status
 
+install-grafana-dashboard:
+	@bin/preflight-grafana-dashboard
+	@echo "Launch command './bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml sync' ..."
+	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml sync
+
+diff-grafana-dashboard:
+	@bin/preflight-grafana-dashboard
+	@echo "Launch command './bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff' ..."
+	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff
+
 destroy:
 	@echo "Launch command './bin/phenv helmfile destroy' ..."
 	@bin/phenv helmfile destroy

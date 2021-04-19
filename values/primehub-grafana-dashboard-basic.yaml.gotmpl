@@ -1,0 +1,8 @@
+{{- if (eq (env "PRIMEHUB_FEATURE_MODEL_DEPLOYMENT") "true") }}
+modelDeployment:
+  enabled: true
+{{- end }}
+{{- if (eq (env "PRIMEHUB_FEATURE_PROMETHEUS_OPERATOR_8") "true") }}
+prometheusOperatorDashboards:
+  enabled: false
+{{- end}}

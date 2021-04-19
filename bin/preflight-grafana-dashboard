@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+command -v jq >/dev/null 2>&1 || { echo >&2 "Require 'jq' but it's not installed. Aborting."; exit 1; }
+command -v kubectl >/dev/null 2>&1 || { echo >&2 "Require 'kubectl' but it's not installed. Aborting."; exit 1; }
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+PHROOT=$(realpath $DIR/../)
+CONFIG_PATH=${CONFIG_PATH:-$($PHROOT/bin/phenv --path)}
+
+info() {
+  echo -e "\033[0;32m$1\033[0m"
+}
+
+warn() {
+  echo -e "\033[0;93m$1\033[0m"
+}
+
+error() {
+  echo -e "\033[0;91m$1\033[0m" >&2
+}
+
+preflight::grafana_dashboard() {
+  touch ${CONFIG_PATH}/helm_override/primehub-grafana-dashboard-basic.yaml
+
+  info "[Check] Prometheus Installed ..."
+  kubectl get crd servicemonitors.monitoring.coreos.com || (error "Prometheus not found."; exit 1)
+}
+
+preflight::grafana_dashboard
