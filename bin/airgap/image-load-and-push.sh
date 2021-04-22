@@ -2,8 +2,10 @@
 set -euo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-PHROOT=$(dirname $(dirname $DIR))
 REGISTRY=primehub.airgap:5000
+REGISTRY_TYPE='docker-registry'
+USER=''
+PASSWORD=''
 
 function print_usage() {
   echo "Push to airgap registry"
@@ -12,6 +14,8 @@ function print_usage() {
   echo "  `basename $0` <images.txt> [<images.tgz>]"
   echo ""
   echo "Options: "
+  echo "  -u  set the username of the registry server"
+  echo "  -p  set the password of the registry server"
   echo "  -h  print this help"
   echo "  -r  set the registry server to push (default \"${REGISTRY}\")"
   echo ""
@@ -27,10 +31,33 @@ function print_usage() {
   echo ""
 }
 
-while getopts "r:h" OPT; do
+function is_harbor_registry() {
+  local registry=$1
+  if curl -s --fail -k https://${registry}/api/v2.0/health > /dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+function create_project() {
+  local project=${1}
+  curl -k -s -u "${USER}:${PASSWORD}" -X POST -H "Content-Type: application/json" "https://${REGISTRY}/api/v2.0/projects" -d \
+"{
+  \"project_name\": \"${project}\",
+  \"public\": true
+}" > /dev/null
+}
+
+while getopts "u:p:r:h" OPT; do
   case $OPT in
+    u)
+      USER=$OPTARG
+      ;;
+    p)
+      PASSWORD=$OPTARG
+      ;;
     r)
-      REGISTRY=$2
+      REGISTRY=$OPTARG
       ;;
     h)
       print_usage
@@ -52,9 +79,15 @@ else
   exit
 fi
 
+if is_harbor_registry ${REGISTRY}; then
+  REGISTRY_TYPE='harbor'
+fi
+
 echo "images.txt: $IMAGES_LIST"
 echo "images.tgz: $IMAGES_FILE"
 echo "registry:   $REGISTRY"
+echo "type:       $REGISTRY_TYPE"
+echo "username:   $USER"
 echo
 
 if [[ ! -f $IMAGES_LIST ]]; then
@@ -67,15 +100,42 @@ if [[ ! -f $IMAGES_FILE ]]; then
   exit
 fi
 
+if [[ ${REGISTRY_TYPE} == 'harbor' ]]; then
+  if [[ ${USER} == '' || ${PASSWORD} == '' ]]; then
+    echo "Should provide username and password when registry type is 'Harbor'"
+    echo
+    print_usage
+    exit
+  fi
+fi
+
+if [[ ${USER} != '' && ${PASSWORD} != '' ]]; then
+  echo "login ${REGISTRY} ..."
+  echo ${PASSWORD} | docker login ${REGISTRY} -u ${USER} --password-stdin
+fi
+
 # load to docker file
 echo "load images..."
 docker load -i $IMAGES_FILE
-echo
 
 echo "push images..."
 # push to registry
 for image in `cat $IMAGES_LIST`; do
-  echo "push $image"
-  docker tag $image ${REGISTRY}/${image}
-  docker push ${REGISTRY}/${image}
+  tag=$(echo $image | cut -d':' -f2)
+  project=$(echo $image | cut -d':' -f1 | cut -d'/' -f1)
+  push_image=$image
+
+  if [[ "$(echo $image | cut -d':' -f1)" != *"/"* ]]; then
+    project='library'
+    push_image="library/${image}"
+  fi
+
+  if [[ ${REGISTRY_TYPE} == 'harbor' ]]; then
+    echo "create project ${project}"
+    create_project ${project}
+  fi
+
+  echo "push ${image}"
+  docker tag ${image} ${REGISTRY}/${push_image}
+  docker push ${REGISTRY}/${push_image}
 done
