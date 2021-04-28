@@ -40,7 +40,7 @@ install-grafana-dashboard:
 	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml sync
 
 diff-grafana-dashboard:
-	@bin/preflight-grafana-dashboard
+	@bin/misc/preflight-grafana-dashboard
 	@echo "Launch command './bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff' ..."
 	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff
 

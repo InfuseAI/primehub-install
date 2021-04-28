@@ -2,6 +2,7 @@
 set -euo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+PHENV=$(realpath $DIR/../phenv)
 
 PRIMEHUB_NAMESPACE=${PRIMEHUB_NAMESPACE:-hub}
 
@@ -18,7 +19,7 @@ error() {
 }
 
 cleanup_primehub() {
-  local config_path=$($DIR/phenv --effective-path)
+  local config_path=$($PHENV --effective-path)
   set -a; source ${config_path}/.env; set +a
 
   info "[Delete] Primehub CRD"
@@ -48,5 +49,9 @@ cleanup_primehub() {
 
   info "[Completed] Cleanup PrimeHub"
 }
+
+if ! $PHENV --effective-path > /dev/null; then
+  exit 1
+fi
 
 cleanup_primehub
