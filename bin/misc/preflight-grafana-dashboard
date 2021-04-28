@@ -4,8 +4,8 @@ command -v jq >/dev/null 2>&1 || { echo >&2 "Require 'jq' but it's not installed
 command -v kubectl >/dev/null 2>&1 || { echo >&2 "Require 'kubectl' but it's not installed. Aborting."; exit 1; }
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-PHROOT=$(realpath $DIR/../)
-CONFIG_PATH=${CONFIG_PATH:-$($PHROOT/bin/phenv --path)}
+PHROOT=$(realpath $DIR/../../)
+CONFIG_PATH=${CONFIG_PATH:-$($PHROOT/bin/phenv --effective-path)}
 
 info() {
   echo -e "\033[0;32m$1\033[0m"
@@ -25,5 +25,9 @@ preflight::grafana_dashboard() {
   info "[Check] Prometheus Installed ..."
   kubectl get crd servicemonitors.monitoring.coreos.com || (error "Prometheus not found."; exit 1)
 }
+
+if ! $PHENV --effective-path > /dev/null; then
+  exit 1
+fi
 
 preflight::grafana_dashboard

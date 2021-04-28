@@ -18,8 +18,8 @@ help:
 	@echo " - destroy    <- Destroy PrimeHub"
 
 init:
-	@echo "Launch command './bin/config_init.sh' ..."
-	@bin/config_init.sh
+	@echo "Launch command './bin/misc/init_env' ..."
+	@bin/misc/init_env
 
 diff:
 	@echo "Launch command './bin/phenv helmfile diff' ..."
@@ -30,21 +30,21 @@ sync:
 	@bin/phenv helmfile sync
 
 status:
-	@bin/status
+	@bin/misc/status
 
 install: init sync status
 
 install-grafana-dashboard:
-	@bin/preflight-grafana-dashboard
+	@bin/misc/preflight-grafana-dashboard
 	@echo "Launch command './bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml sync' ..."
 	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml sync
 
 diff-grafana-dashboard:
-	@bin/preflight-grafana-dashboard
+	@bin/misc/preflight-grafana-dashboard
 	@echo "Launch command './bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff' ..."
 	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff
 
 destroy:
 	@echo "Launch command './bin/phenv helmfile destroy' ..."
 	@bin/phenv helmfile destroy
-	@bin/cleanup
+	@bin/misc/cleanup
