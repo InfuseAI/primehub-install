@@ -4,7 +4,7 @@ command -v jq >/dev/null 2>&1 || { echo >&2 "Require 'jq' but it's not installed
 command -v kubectl >/dev/null 2>&1 || { echo >&2 "Require 'kubectl' but it's not installed. Aborting."; exit 1; }
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-PHROOT=$(realpath $DIR/../)
+PHROOT=$(realpath $DIR/../../)
 CONFIG_PATH=${CONFIG_PATH:-$($PHROOT/bin/phenv --path)}
 
 info() {
