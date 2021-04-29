@@ -16,6 +16,7 @@ charts:
     {{- if env "PRIMEHUB_VERSION" }}
     version: {{ env "PRIMEHUB_VERSION" }}
     {{- end }}
+    timeout: 600
     values:
       - values/primehub.yaml.gotmpl
       - values/images.yaml.gotmpl
