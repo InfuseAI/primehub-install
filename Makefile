@@ -22,8 +22,8 @@ init:
 	@bin/misc/init_env
 
 diff:
-	@echo "Launch command './bin/phenv helmfile diff' ..."
-	@bin/phenv helmfile diff
+	@echo "Launch command '$(pwd)/bin/phenv helmfile diff --context 2 --skip-deps --args '--disable-validation' ..."
+	@bin/phenv helmfile diff --context 2 --skip-deps --args '--disable-validation'
 
 sync:
 	@echo "Launch command './bin/phenv helmfile sync' ..."
@@ -41,8 +41,8 @@ install-grafana-dashboard:
 
 diff-grafana-dashboard:
 	@bin/misc/preflight-grafana-dashboard
-	@echo "Launch command './bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff' ..."
-	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff
+	@echo "Launch command '$(pwd)/bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff --context 2 --skip-deps --args '--disable-validation' ..."
+	@bin/phenv helmfile -f values/primehub-grafana-dashboard-basic.yaml diff --context 2 --skip-deps --args '--disable-validation'
 
 destroy:
 	@echo "Launch command './bin/phenv helmfile destroy' ..."
