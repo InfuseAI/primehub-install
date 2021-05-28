@@ -1,3 +1,7 @@
+THIS REPOSITORY is ARCHIVED.
+
+The helmfiles are move to `install` folder in [PrimeHub](https://github.com/InfuseAI/primehub). And the cdk is mvoed to [primehub-multinodes-aws](https://github.com/InfuseAI/primehub-multinodes-aws)
+
 # PrimeHub Install
 
 A repository helps you to install [PrimeHub](https://github.com/InfuseAI/primehub).
@@ -69,7 +73,7 @@ In this repository, we provide a Makefile that uses helmfile configurations to i
 
 ## Reconfiguration
 
-The repository helps you basic installation, and it is possible to reconfigure it by yourself. 
+The repository helps you basic installation, and it is possible to reconfigure it by yourself.
 
 First, find your configuration directory:
 
